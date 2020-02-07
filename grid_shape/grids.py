@@ -3,12 +3,17 @@ import numpy as np
 from numpy import *
 import astropy.units as u
 import logging
-import os,sys,inspect
+import os
+import sys
+import inspect
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
+import hexy as hx
 
-def create_grid(positions,phi,GridShape,xNum,yNum):
+Z_SITE = 2900 # height of GP300 site in km
+
+def create_grid(positions, phi, GridShape, xNum, yNum):
     '''
     generate new positions of antennas with specific layout
     write positions in file path/Test/new_antpos.dat
@@ -49,8 +54,8 @@ def create_grid(positions,phi,GridShape,xNum,yNum):
     miny = min(y_pos)
     maxy = max(y_pos)
 
-    stepx = (maxx-minx)/(xNum+1)
-    stepy = (maxy-miny)/(yNum+1)
+    stepx = (maxx-minx) / (xNum+1)
+    stepy = (maxy-miny) / (yNum+1)
     hexradius = stepx # for hexagonal grid
 
     x_pos_new = x_pos
@@ -157,28 +162,41 @@ def create_grid(positions,phi,GridShape,xNum,yNum):
     return new_pos
 
 
-def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPLAY=False):
+def create_grid_univ(
+    GridShape,
+    radius,
+    angle=0,
+    do_offset=False,
+    Nrand=None,
+    randeff=None,
+    DISPLAY=False,
+    directory=None
+):
     '''
     generate new positions of antennas with universal layout
     write positions in file directory/new_antpos.dat
     should be called outside of database reading loop
 
     Parameters:
-    directory: str
-        path of root directory of shower library
+    
     GridShape: str
         shape of antenna grid
         'rect' = rectangles tiled over rectangular shape
         'hexhex' = hexagons tiled in overall hexagonal shape
         'hexrand' = hexagons tiled in overal hexagonal shape with Nrand randomly displaced antennas
     radius: float
-        radius of hexagon in m
+        radius of hexagon in m, radius >=2
+    angle: float
+        angle in degree, Rotation angle of grid (TBC)
+    do_offset: boolean
+        do random offset on antenna positions (TBC)
     Nrand: int
         for hexrand option: number of randomly displaced antennas
     randeff:
         for hexrand option: antennas are displaced following a normal law
         centered on 0 and of sigma radius/randeff
-
+    directory: str
+        path of root directory of shower library
     Output:
     new_pos: numpy arrays
         x, y, z coordinates of antenna in new layout
@@ -186,8 +204,11 @@ def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPL
 
     '''
 
-    z_site = 2900. # height of GP300 site in km
-
+    z_site = Z_SITE # height of GP300 site in km
+    try:
+        assert radius > 2, "radius must be > 2m"
+    except AssertionError:
+        sys.exit("radius must be > 2m")
 
     if GridShape == 'rect':
         # create rectangular grid
@@ -207,7 +228,7 @@ def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPL
 
 
         # write new antenna position file
-        if(directory!=None):
+        if directory != None:
             logging.debug('create_grid: Writing in file '+ directory +'/new_antpos_rect_%d.dat...'%radius)
             FILE = open(directory+ '/new_antpos_rect_%d.dat'%radius,"w+" )
             for i in range( 1, len(x_pos_new)+1 ):
@@ -218,14 +239,14 @@ def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPL
     if GridShape == 'hexhex':
         # create a hexagonal grid with overall hexagonal layout
         logging.debug('create_grid:Generating hexagonal grid in hex layout...')
-        import hexy as hx
 
         Nring = 5 # number of hex rings corresponding to 186 antennas
-        xcube = hx.get_spiral(np.array((0,0,0)), 0,Nring)
+        xcube = hx.get_spiral(np.array((0,0,0)), 0, Nring)
         xpix = hx.cube_to_pixel(xcube, radius)
         xcorn = hx.get_corners(xpix,radius)
-
+        
         sh = np.array(xcorn).shape
+        
         xcorn2=xcorn.transpose(0,2,1)
         hexarray = np.array(xcorn2).reshape((sh[0]*sh[2],sh[1]))
 
@@ -236,11 +257,14 @@ def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPL
         # remove redundant points
         x_pos_flat_fl = grid_x
         y_pos_flat_fl = grid_y
-        scal = (x_pos_flat_fl-x_pos_flat_fl.min()) + (x_pos_flat_fl.max()-x_pos_flat_fl.min())*(y_pos_flat_fl-y_pos_flat_fl.min())
+        scal = (x_pos_flat_fl - x_pos_flat_fl.min()) +(x_pos_flat_fl.max() - x_pos_flat_fl.min()) * (y_pos_flat_fl - y_pos_flat_fl.min())
+
         scal = np.floor(scal)
         unique, index = np.unique(scal, return_index=True)
+        print(unique.shape)
         x_pos_new = grid_x[index]
         y_pos_new = grid_y[index]
+       
 
         # write new antenna position file
         if(directory!=None):
@@ -254,8 +278,7 @@ def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPL
     if GridShape == 'hexrand':
         # create a hexagonal grid with overall hexagonal layout
         logging.debug('create_grid:Generating hexagonal grid in hex layout with random displacements...')
-        import hexy as hx
-
+        
         Nring = 5 # number of hex rings corresponding to 186 antennas
         xcube = hx.get_spiral(np.array((0,0,0)), 0,Nring)
         xpix = hx.cube_to_pixel(xcube, radius)
@@ -267,7 +290,6 @@ def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPL
 
         grid_x = hexarray[:,0]
         grid_y = hexarray[:,1]
-
 
         # remove redundant points
         x_pos_flat_fl = grid_x
@@ -292,20 +314,11 @@ def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPL
    #     FILE.close()
 
 
-
-    if DISPLAY:
-        fig, axs = plt.subplots(1,1)
-        axs.plot(x_pos_new, y_pos_new, 'k.')
-        axs.axis('equal')
-        plt.show()
-
-
     # for now set position of z to site altitude
     z_pos_new = x_pos_new*0 + z_site
 
     # create new position array
     new_pos = np.stack((x_pos_new,y_pos_new,z_pos_new), axis=0)
-
 
     # write new antenna position file
     if(directory!=None):
@@ -315,10 +328,56 @@ def create_grid_univ(directory,GridShape,radius, Nrand=None, randeff=None, DISPL
             print("%i A%i %1.5e %1.5e %1.5e" % (i,i-1,x_pos_new[i-1],y_pos_new[i-1],z_site), end='\n', file=FILE)
         FILE.close()
 
+    if angle != 0:
+        X = new_pos[0,:]
+        Y = new_pos[1,:]
+
+        theta = angle / 180 * np.pi
+
+        Xp = X * np.cos(theta) + Y * np.sin(theta)
+        Yp = X * np.sin(theta) - Y * np.cos(theta)
+
+        new_pos[0,:] = Xp
+        new_pos[1,:] = Yp
+    
+    if do_offset:
+
+        offset = get_offset(radius, GridShape)
+    
+        x = offset[0]
+        y = offset[1]
+        
+        theta = angle / 180 * np.pi
+
+        xp = x * np.cos(theta) + y * np.sin(theta)
+        yp = x * np.sin(theta) - y * np.cos(theta)
+
+        new_pos[0,:] -= xp
+        new_pos[1,:] -= yp
+
+  
+
+    if DISPLAY:
+        fig, axs = plt.subplots(1,1)
+        axs.plot(new_pos[0,:], new_pos[1,:], 'k.')
+        axs.plot(0,0, 'r.')
+        #axs.plot(offset[0],offset[1], 'g.')
+        axs.axis('equal')
+        plt.show()
+    
     return new_pos
 
-
-
-
-
-
+def get_offset(radius, GridShape):
+    if GridShape == "rect":
+        offset = (np.random.rand(2) - 0.5 ) * radius
+    elif GridShape == "hexhex":
+        offset = (np.random.rand(2) - 0.5 ) * 2*radius
+        print('offset = ', offset)
+        print(hx.is_inside_hex(offset, radius))
+        while not(hx.is_inside_hex(offset, radius)):
+            print('toto')
+            offset = (np.random.rand(2) - 0.5 ) * 2*radius
+    else:
+        print("offset not yet implemented for this GridShape")
+        offset=[0,0]
+    return offset
