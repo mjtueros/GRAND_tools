@@ -187,9 +187,9 @@ def create_grid_univ(
     radius: float
         radius of hexagon in m, radius >=2
     angle: float
-        angle in degree, Rotation angle of grid (TBC)
+        angle in degree, rotation angle of grid 
     do_offset: boolean
-        do random offset on antenna positions (TBC)
+        do random offset on antenna positions, keeping (0,0) inside the central cell
     Nrand: int
         for hexrand option: number of randomly displaced antennas
     randeff:
@@ -329,7 +329,7 @@ def create_grid_univ(
         FILE.close()
 
 
-   
+   # rotate grid of specified angle
     if angle != 0:
         X = new_pos[0,:]
         Y = new_pos[1,:]
@@ -342,6 +342,8 @@ def create_grid_univ(
         new_pos[0,:] = Xp
         new_pos[1,:] = Yp
     
+    # offset grid of random offset. The (0,0) point lies in the first cell.    
+    # takes into account the rotation done previously
     if do_offset:
 
         offset = get_offset(radius, GridShape)
@@ -368,7 +370,13 @@ def create_grid_univ(
     
     return new_pos
 
+
+
 def get_offset(radius, GridShape):
+'''
+    Draw random offset in the central cell 
+'''
+
     if GridShape == "rect":
         offset = (np.random.rand(2) - 0.5 ) * radius
     elif GridShape == "hexhex":
