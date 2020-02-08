@@ -261,7 +261,7 @@ def create_grid_univ(
 
         scal = np.floor(scal)
         unique, index = np.unique(scal, return_index=True)
-        print(unique.shape)
+
         x_pos_new = grid_x[index]
         y_pos_new = grid_y[index]
        
@@ -328,14 +328,16 @@ def create_grid_univ(
             print("%i A%i %1.5e %1.5e %1.5e" % (i,i-1,x_pos_new[i-1],y_pos_new[i-1],z_site), end='\n', file=FILE)
         FILE.close()
 
+
+   
     if angle != 0:
         X = new_pos[0,:]
         Y = new_pos[1,:]
 
         theta = angle / 180 * np.pi
-
-        Xp = X * np.cos(theta) + Y * np.sin(theta)
-        Yp = X * np.sin(theta) - Y * np.cos(theta)
+     
+        Xp = X * np.cos(theta) - Y * np.sin(theta)
+        Yp = X * np.sin(theta) + Y * np.cos(theta)
 
         new_pos[0,:] = Xp
         new_pos[1,:] = Yp
@@ -343,25 +345,24 @@ def create_grid_univ(
     if do_offset:
 
         offset = get_offset(radius, GridShape)
-    
+       
         x = offset[0]
         y = offset[1]
-        
         theta = angle / 180 * np.pi
+        xp = x * np.cos(theta) - y * np.sin(theta)
+        yp = x * np.sin(theta) + y * np.cos(theta)
 
-        xp = x * np.cos(theta) + y * np.sin(theta)
-        yp = x * np.sin(theta) - y * np.cos(theta)
-
-        new_pos[0,:] -= xp
-        new_pos[1,:] -= yp
+        new_pos[0,:] += xp
+        new_pos[1,:] += yp
 
   
 
     if DISPLAY:
         fig, axs = plt.subplots(1,1)
-        axs.plot(new_pos[0,:], new_pos[1,:], 'k.')
-        axs.plot(0,0, 'r.')
-        #axs.plot(offset[0],offset[1], 'g.')
+        axs.plot(new_pos[0,:], new_pos[1,:], 'r.')
+    
+        axs.plot(0,0, 'b.')
+        axs.plot(offset[0],offset[1], 'g.')
         axs.axis('equal')
         plt.show()
     
@@ -372,10 +373,7 @@ def get_offset(radius, GridShape):
         offset = (np.random.rand(2) - 0.5 ) * radius
     elif GridShape == "hexhex":
         offset = (np.random.rand(2) - 0.5 ) * 2*radius
-        print('offset = ', offset)
-        print(hx.is_inside_hex(offset, radius))
         while not(hx.is_inside_hex(offset, radius)):
-            print('toto')
             offset = (np.random.rand(2) - 0.5 ) * 2*radius
     else:
         print("offset not yet implemented for this GridShape")
