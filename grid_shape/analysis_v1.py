@@ -39,11 +39,14 @@ class Event:
     def is_triggered(self, threshold):
         return self.p2ptot > threshold
 
-path = "/Users/benoitl/Documents/GRAND/InterpolationOutputExample/"
+#path = "/Users/kotera/BROQUE/Data_GRAND/Matias/InterpolationOutputExample/"
+path = "/Users/kotera/BROQUE/Data_GRAND/Matias/StshpLibrary02/"
 
 ev_list = []
+count = 0
 
-for subdir in os.listdir(path):
+
+for subdir in os.listdir(path)[0:25000]:
     if os.path.isdir(os.path.join(path, subdir)):
         list_fn = os.listdir(os.path.join(path, subdir))        
         for fn in list_fn:
@@ -54,12 +57,16 @@ for subdir in os.listdir(path):
 
                 ev_list.append(Event(f1, f2, step, fn))
 
-thresold = 50
+    count += 1 
+    if(count % 100 == 0):
+        print("Event #{} done".format(count))
+
+threshold = 30
 # is_triggered_list = [sum(ev.is_triggered(75)) for ev in ev_list if "voltage" in ev.name]
 
 for ev in ev_list:
     if "voltage" in ev.name:
-        ev.num_triggered = sum(ev.is_triggered(thresold))
+        ev.num_triggered = sum(ev.is_triggered(threshold))
 
 # A = [(ev.num_triggered, ev.energy, ev.step, ev.primary, ev.layout, ev.zenith) for  ev in ev_list if "voltage" in ev.name]
 
@@ -81,24 +88,82 @@ A_hexhex = [
 A_rect = np.array(A_rect)
 A_hexhex = np.array(A_hexhex)
 
-i_rect_low = np.where(A_rect[:,3] <= 9.500000e+1)[0]
-i_rect_high = np.where(A_rect[:,3] > 9.500000e+1)[0]
-i_hexhex_low = np.where(A_hexhex[:,3] <= 9.500000e+1)[0]
-i_hexhex_high = np.where(A_hexhex[:,3] > 9.500000e+1)[0]
 
-plt.figure(1)
-plt.clf()
-plt.plot(A_rect[i_rect_low,2], A_rect[i_rect_low,0], 'ro', label="rect - low zenith")
-plt.plot(A_rect[i_rect_high,2], A_rect[i_rect_high,0], 'rv', label="rect - high zenith")
+enerbins = np.unique(A_rect[:,1])
+#zenbins = np.unique(A_rect[:,3])
+zenbins = [94,100,105,110,120,131]
+stepbins = np.unique(A_rect[:,2])
 
-plt.plot(A_hexhex[i_hexhex_low,2], A_hexhex[i_hexhex_low,0], 'bo', label="hexhex - low zenith")
-plt.plot(A_hexhex[i_hexhex_high,2], A_hexhex[i_hexhex_high,0], 'bv', label="hexhex - high zenith")
+meanNtrig_ener = []
+varNtrig_ener = []
+
+for istep, step in enumerate(stepbins):
+    meanNtrig_step = []
+    varNtrig_step = []
+
+    for iener, ener in enumerate(enerbins):
+        meanNtrig_zen = []
+        varNtrig_zen = []
+    
+        for izen in range(0, len(zenbins)-1):
+            ind = np.where((A_rect[:,1] == ener) * (A_rect[:,2] == step) 
+                * (A_rect[:,3] >= zenbins[izen]) * (A_rect[:,3] < zenbins[izen+1]))
+            meanNtrig_zen.append(np.mean(A_rect[ind[0],0]))
+            varNtrig_zen.append(np.var(A_rect[ind[0],0]))
+
+        meanNtrig_step.append(meanNtrig_zen)
+        varNtrig_step.append(varNtrig_zen)
+
+    meanNtrig_ener.append(meanNtrig_step)
+    varNtrig_ener.append(varNtrig_step)
+
+meanNtrig_ener = np.array(meanNtrig_ener)
+varNtrig_ener = np.array(varNtrig_ener)
 
 
-plt.xlabel("step [m]")
-plt.ylabel("N triggred")
-plt.legend(loc=0)
-plt.show()
-
+#plt.hist2d(A_rect[:,1],A_rect[:,0])
+#plt.tight_layout()
+#plt.show()
+#plt.ylabel('N triggered')
+#plt.xlabel('energy [EeV]')
 # ev1 = Event(f1,f2)
 
+
+sym_list = ['.','o','v','*','s']
+
+
+for istep, step in enumerate(stepbins):
+    plt.figure(istep) 
+    plt.clf()
+    for izen in range(0, len(zenbins)-1):
+        #plt.plot(enerbins, meanNtrig_ener[istep], sym_list[istep], 
+         #    label='step = %d m'%(np.int32(step)))
+        plt.errorbar(enerbins, meanNtrig_ener[istep,:,izen], yerr=sqrt(varNtrig_ener[istep,:,izen]), 
+            fmt=sym_list[izen], capsize=2, label='%4.0f > zen >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
+    plt.yscale('log')
+    plt.ylabel('N triggered')
+    plt.xlabel('energy [EeV]')
+    plt.title('step = %d m'%(np.int32(step)))
+    plt.legend(loc=4)
+    plt.show()
+
+ #        plt.errorbar(enerbins, meanNtrig_ener[istep,:,izen], yerr=sqrt(varNtrig_ener[istep,:,izen]), 
+  #          fmt='.', capsize=2, label='step = %d m'%(np.int32(step)))
+ 
+
+for izen in range(0, len(zenbins)-1):
+    plt.figure(izen+4) 
+    plt.clf()
+    for istep, step in enumerate(stepbins):
+                #plt.plot(enerbins, meanNtrig_ener[istep], sym_list[istep], 
+                #    label='step = %d m'%(np.int32(step)))
+        plt.errorbar(enerbins, meanNtrig_ener[istep,:,izen], yerr=sqrt(varNtrig_ener[istep,:,izen]), 
+            fmt=sym_list[istep], capsize=2, label='step = %d m'%(np.int32(step)))
+    plt.yscale('log')
+    plt.ylabel('N triggered')
+    plt.xlabel('energy [EeV]')
+    plt.title('%4.0f > zenith >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
+    plt.legend(loc=4)
+    plt.show()
+
+ 
