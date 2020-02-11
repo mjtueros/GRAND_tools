@@ -36,8 +36,11 @@ class Event:
         else:
             self.layout = "unknown"
 
-    def is_triggered(self, threshold):
+    def is_triggered1(self, threshold):
         return self.p2ptot > threshold
+
+
+# read files
 
 #path = "/Users/kotera/BROQUE/Data_GRAND/Matias/InterpolationOutputExample/"
 path = "/Users/kotera/BROQUE/Data_GRAND/Matias/StshpLibrary02/"
@@ -45,8 +48,7 @@ path = "/Users/kotera/BROQUE/Data_GRAND/Matias/StshpLibrary02/"
 ev_list = []
 count = 0
 
-
-for subdir in os.listdir(path)[0:25000]:
+for subdir in os.listdir(path)[0:1000]:
     if os.path.isdir(os.path.join(path, subdir)):
         list_fn = os.listdir(os.path.join(path, subdir))        
         for fn in list_fn:
@@ -61,25 +63,28 @@ for subdir in os.listdir(path)[0:25000]:
     if(count % 100 == 0):
         print("Event #{} done".format(count))
 
-threshold = 30
+# select triggered antennas and events
+threshold = 75
 # is_triggered_list = [sum(ev.is_triggered(75)) for ev in ev_list if "voltage" in ev.name]
 
 for ev in ev_list:
     if "voltage" in ev.name:
-        ev.num_triggered = sum(ev.is_triggered(threshold))
+        ev.num_triggered = sum(ev.is_triggered1(threshold))
+        ev.is_triggered2 = (ev.num_triggered > 5)
 
 # A = [(ev.num_triggered, ev.energy, ev.step, ev.primary, ev.layout, ev.zenith) for  ev in ev_list if "voltage" in ev.name]
 
+# make array with each event information 
 A = [(ev.num_triggered, ev.energy, ev.step, ev.layout, ev.zenith) for  ev in ev_list if "voltage" in ev.name and ev.primary == "Proton"]
 
 A_rect = [
-    (ev.num_triggered, ev.energy, ev.step, ev.zenith) for  ev in ev_list
+    (ev.num_triggered, ev.energy, ev.step, ev.zenith, ev.is_triggered2) for  ev in ev_list
     if "voltage" in ev.name
     and ev.primary == "Proton"
-    and ev.layout == 'rect'
+    and ev.layout == 'hexhex'
 ]
 A_hexhex = [
-    (ev.num_triggered, ev.energy, ev.step, ev.zenith) for  ev in ev_list
+    (ev.num_triggered, ev.energy, ev.step, ev.zenith, ev.is_triggered2) for  ev in ev_list
     if "voltage" in ev.name
     and ev.primary == "Proton"
     and ev.layout == 'hexhex'
@@ -88,7 +93,7 @@ A_hexhex = [
 A_rect = np.array(A_rect)
 A_hexhex = np.array(A_hexhex)
 
-
+# calculate mean and variance of triggered antenna numbers in each zenith angle and energy bins 
 enerbins = np.unique(A_rect[:,1])
 #zenbins = np.unique(A_rect[:,3])
 zenbins = [94,100,105,110,120,131]
@@ -121,49 +126,93 @@ meanNtrig_ener = np.array(meanNtrig_ener)
 varNtrig_ener = np.array(varNtrig_ener)
 
 
-#plt.hist2d(A_rect[:,1],A_rect[:,0])
-#plt.tight_layout()
-#plt.show()
-#plt.ylabel('N triggered')
-#plt.xlabel('energy [EeV]')
-# ev1 = Event(f1,f2)
+# calculate mean and variance of triggered event numbers in each zenith angle and energy bins 
+
+Ntrig2_ener = []
+
+for istep, step in enumerate(stepbins):
+    Ntrig2_step = []
+
+    for iener, ener in enumerate(enerbins):
+        Ntrig2_zen = []
+    
+        for izen in range(0, len(zenbins)-1):
+            ind = np.where((A_rect[:,1] == ener) * (A_rect[:,2] == step) 
+                * (A_rect[:,3] >= zenbins[izen]) * (A_rect[:,3] < zenbins[izen+1]))
+            Ntrig2_zen.append(sum(A_rect[ind[0],4])/size(A_rect[ind[0],4]))
+
+        Ntrig2_step.append(Ntrig2_zen)
+
+    Ntrig2_ener.append(Ntrig2_step)
+
+Ntrig2_ener = np.array(Ntrig2_ener)
 
 
+
+# plot Ntriggered antennas vs energies for fixed steps
 sym_list = ['.','o','v','*','s']
-
+myc = ['0','0.20','0.4','0.6','0.8']
 
 for istep, step in enumerate(stepbins):
     plt.figure(istep) 
     plt.clf()
     for izen in range(0, len(zenbins)-1):
-        #plt.plot(enerbins, meanNtrig_ener[istep], sym_list[istep], 
-         #    label='step = %d m'%(np.int32(step)))
         plt.errorbar(enerbins, meanNtrig_ener[istep,:,izen], yerr=sqrt(varNtrig_ener[istep,:,izen]), 
-            fmt=sym_list[izen], capsize=2, label='%4.0f > zen >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
+            fmt=sym_list[izen], capsize=2, alpha=0.7, label='%4.0f > zen >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
+        #plt.errorbar(enerbins, Ntrig2_ener[istep,:,izen], 
+        #    fmt=sym_list[izen], capsize=2)
     plt.yscale('log')
-    plt.ylabel('N triggered')
+    plt.ylabel('N triggered antennas')
     plt.xlabel('energy [EeV]')
-    plt.title('step = %d m'%(np.int32(step)))
+    plt.title('hex, step = %d m'%(np.int32(step)))
+    plt.legend(loc=4)
+    plt.show()
+ 
+# plot Ntriggered antennas vs energies for fixed zenith angles
+for izen in range(0, len(zenbins)-1):
+    plt.figure(izen+4) 
+    plt.clf()
+    for istep, step in enumerate(stepbins):
+        plt.errorbar(enerbins, meanNtrig_ener[istep,:,izen], yerr=sqrt(varNtrig_ener[istep,:,izen]), 
+            fmt=sym_list[istep], capsize=2, alpha=0.7, label='step = %d m'%(np.int32(step)))
+        #plt.errorbar(enerbins, Ntrig2_ener[istep,:,izen],  
+         #   fmt=sym_list[istep], capsize=2, alpha=0.7)
+    plt.yscale('log')
+    plt.ylabel('N triggered antennas')
+    plt.xlabel('energy [EeV]')
+    plt.title('hex, %4.0f > zenith >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
     plt.legend(loc=4)
     plt.show()
 
- #        plt.errorbar(enerbins, meanNtrig_ener[istep,:,izen], yerr=sqrt(varNtrig_ener[istep,:,izen]), 
-  #          fmt='.', capsize=2, label='step = %d m'%(np.int32(step)))
  
+
+
+# plot Ntriggered events vs energies for fixed step size and zenith angles
+
+for istep, step in enumerate(stepbins):
+    plt.figure(istep) 
+    plt.clf()
+    for izen in range(0, len(zenbins)-1):
+        plt.errorbar(enerbins, Ntrig2_ener[istep,:,izen], 
+            fmt=sym_list[izen], capsize=2, alpha=0.7, label='%4.0f > zen >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
+    plt.yscale('log')
+    plt.ylabel('N triggered events')
+    plt.xlabel('energy [EeV]')
+    plt.title('hex, step = %d m'%(np.int32(step)))
+    plt.legend(loc=4)
+    plt.show()
+    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrigev_vs_energy_step%d_hex.png'%(np.int32(step)))
 
 for izen in range(0, len(zenbins)-1):
     plt.figure(izen+4) 
     plt.clf()
     for istep, step in enumerate(stepbins):
-                #plt.plot(enerbins, meanNtrig_ener[istep], sym_list[istep], 
-                #    label='step = %d m'%(np.int32(step)))
-        plt.errorbar(enerbins, meanNtrig_ener[istep,:,izen], yerr=sqrt(varNtrig_ener[istep,:,izen]), 
-            fmt=sym_list[istep], capsize=2, label='step = %d m'%(np.int32(step)))
+        plt.errorbar(enerbins, Ntrig2_ener[istep,:,izen],  
+            fmt=sym_list[istep], capsize=2, alpha=0.7, label='step = %d m'%(np.int32(step)))
     plt.yscale('log')
-    plt.ylabel('N triggered')
+    plt.ylabel('N triggered events')
     plt.xlabel('energy [EeV]')
-    plt.title('%4.0f > zenith >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
+    plt.title('hex, %4.0f > zenith >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
     plt.legend(loc=4)
     plt.show()
-
- 
+    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrigev_vs_energy_z%4.1f_hex.png'%(180-zenbins[izen+1]))
