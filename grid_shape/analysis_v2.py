@@ -43,12 +43,14 @@ class Event:
 # read files
 
 #path = "/Users/kotera/BROQUE/Data_GRAND/Matias/InterpolationOutputExample/"
-path = "/Users/kotera/BROQUE/Data_GRAND/Matias/StshpLibrary02/"
+#path = "/Users/kotera/BROQUE/Data_GRAND/Matias/StshpLibrary02/"
+path = "/Users/kotera/BROQUE/Data_GRAND/Matias/StshpLibrary03/"
 
 ev_list = []
 count = 0
 
-for subdir in os.listdir(path)[0:1000]:
+#for subdir in os.listdir(path)[0:25000]:
+for subdir in os.listdir(path):
     if os.path.isdir(os.path.join(path, subdir)):
         list_fn = os.listdir(os.path.join(path, subdir))        
         for fn in list_fn:
@@ -70,7 +72,7 @@ threshold = 75
 for ev in ev_list:
     if "voltage" in ev.name:
         ev.num_triggered = sum(ev.is_triggered1(threshold))
-        ev.is_triggered2 = (ev.num_triggered > 5)
+        ev.is_triggered2 = (ev.num_triggered > 10)
 
 # A = [(ev.num_triggered, ev.energy, ev.step, ev.primary, ev.layout, ev.zenith) for  ev in ev_list if "voltage" in ev.name]
 
@@ -95,7 +97,9 @@ A_hexhex = np.array(A_hexhex)
 
 # calculate mean and variance of triggered antenna numbers in each zenith angle and energy bins 
 enerbins = np.unique(A_rect[:,1])
-zenbins = 180-np.unique(A_rect[:,3])
+#zenbins = 180-np.unique(A_rect[:,3])
+zenbins = np.array([94.77,95.74,97.18,98.21,99.59,101.54, 104.48, 106.6, 109.47, 113.58,120,132])
+zenbins = 180. - zenbins
 #zenbins = [94,100,105,110,120,131]
 stepbins = np.unique(A_rect[:,2])
 
@@ -113,11 +117,9 @@ for istep, step in enumerate(stepbins):
         #for izen in range(0, len(zenbins)-1):
         for izen, zen in enumerate(zenbins):
             ind = np.where((A_rect[:,1] == ener) * (A_rect[:,2] == step)
-                * (A_rect[:,3] == 180-zen) * (A_rect[:,0] > 0))
+                * (np.abs(A_rect[:,3]-(180-zen)) < 0.5) * (A_rect[:,0] > 0))
+                #* (A_rect[:,3] == 180-zen)* (A_rect[:,0] > 0))
                 #* (A_rect[:,3] >= zenbins[izen]) * (A_rect[:,3] < zenbins[izen+1]))
-
-            if sum(A_rect[:,0]) == 0:
-                ind[0] = -1
 
             meanNtrig_zen.append(np.mean(A_rect[ind[0],0]))
             varNtrig_zen.append(np.var(A_rect[ind[0],0]))
@@ -145,8 +147,9 @@ for istep, step in enumerate(stepbins):
         #for izen in range(0, len(zenbins)-1):
         for izen, zen in enumerate(zenbins):
             ind = np.where((A_rect[:,1] == ener) * (A_rect[:,2] == step) 
+                *(np.abs(A_rect[:,3]-(180-zen)) < 0.5))
+                #* (A_rect[:,3] == 180-zen))
                 #* (A_rect[:,3] >= zenbins[izen]) * (A_rect[:,3] < zenbins[izen+1]))
-                * (A_rect[:,3] == zen))
             Ntrig2_zen.append(sum(A_rect[ind[0],4])/size(A_rect[ind[0],4]))
 
         Ntrig2_step.append(Ntrig2_zen)
@@ -192,8 +195,8 @@ for izen in range(0, len(zenbins)-1):
     plt.legend(loc=4)
     plt.show()
 
- # plot Ntriggered antennas vs zenith angles for fixed energies 
- for iener, ener in enumerate(enerbins):
+# plot Ntriggered antennas vs zenith angles for fixed energies 
+for iener, ener in enumerate(enerbins):
     plt.figure(iener) 
     plt.clf()
     for istep, step in enumerate(stepbins):
@@ -204,10 +207,12 @@ for izen in range(0, len(zenbins)-1):
     plt.yscale('log')
     plt.ylabel('N triggered antennas')
     plt.xlabel('zenith [deg]')
-    plt.title('rect, E = %4.3f EeV'%(ener))
-    plt.legend(loc=4)
+    plt.title('Proton, rect, E = %4.3f EeV'%(ener))
+    plt.legend(loc=2)
+    plt.ylim(1,225)
+    plt.xlim(45,90)
     plt.show()
-    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrig_vs_zen_E%4.3f_rect.png'%(ener))
+    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrig_vs_zen_E%4.3f_rect_Proton.png'%(ener))
 
 
 
@@ -249,9 +254,11 @@ for iener, ener in enumerate(enerbins):
         plt.errorbar(zenbins, Ntrig2_ener[istep,iener,:],  
             fmt=sym_list[istep], capsize=2, alpha=0.7, label='step = %d m'%(np.int32(step)))
         plt.yscale('log')
-    plt.ylabel('N triggered antennas')
+    plt.ylabel('N triggered events')
     plt.xlabel('zenith [deg]')
-    plt.title('rect, E = %4.3f EeV'%(ener))
+    plt.title('Proton, rect, E = %4.3f EeV'%(ener))
     plt.legend(loc=4)
+    plt.ylim(1.e-2,1.1)
+    plt.xlim(45,90)
     plt.show()
-    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrigev_vs_zen_E%4.3f_rect.png'%(ener))
+    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrigev_vs_zen_E%4.3f_rect_Proton_10N.png'%(ener))
