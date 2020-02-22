@@ -64,7 +64,7 @@ for subdir in os.listdir(path)[0:1000]:
         print("Event #{} done".format(count))
 
 # select triggered antennas and events
-threshold = 75
+threshold = 30
 # is_triggered_list = [sum(ev.is_triggered(75)) for ev in ev_list if "voltage" in ev.name]
 
 for ev in ev_list:
@@ -81,7 +81,7 @@ A_rect = [
     (ev.num_triggered, ev.energy, ev.step, ev.zenith, ev.is_triggered2) for  ev in ev_list
     if "voltage" in ev.name
     and ev.primary == "Proton"
-    and ev.layout == 'hexhex'
+    and ev.layout == 'rect'
 ]
 A_hexhex = [
     (ev.num_triggered, ev.energy, ev.step, ev.zenith, ev.is_triggered2) for  ev in ev_list
@@ -201,7 +201,7 @@ for istep, step in enumerate(stepbins):
     plt.title('hex, step = %d m'%(np.int32(step)))
     plt.legend(loc=4)
     plt.show()
-    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrigev_vs_energy_step%d_hex.png'%(np.int32(step)))
+    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrigev_vs_energy_step%d_rect_30muV.png'%(np.int32(step)))
 
 for izen in range(0, len(zenbins)-1):
     plt.figure(izen+4) 
@@ -215,4 +215,4 @@ for izen in range(0, len(zenbins)-1):
     plt.title('hex, %4.0f > zenith >%4.0f deg'%(180-zenbins[izen], 180-zenbins[izen+1]))
     plt.legend(loc=4)
     plt.show()
-    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrigev_vs_energy_z%4.1f_hex.png'%(180-zenbins[izen+1]))
+    plt.savefig('/Users/kotera/BROQUE/Plots_GRAND/Ntrigev_vs_energy_z%4.1f_rect_30muV.png'%(180-zenbins[izen+1]))
