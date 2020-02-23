@@ -188,6 +188,7 @@ def create_grid_univ(
         radius of hexagon in m, radius >=2
     angle: float
         angle in degree, rotation angle of grid 
+        use -theta, when theta is the azimuthal angle of a shower 
     do_offset: boolean
         do random offset on antenna positions, keeping (0,0) inside the central cell
     Nrand: int
