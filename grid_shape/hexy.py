@@ -46,6 +46,20 @@ def is_inside_hex(pos, radius):
         else:
             return True
 
+def is_inside_hex_flattop(pos, radius):
+    
+    pos = np.abs(pos)
+    
+    r = radius * np.sqrt(3) / 2
+    
+    if pos[1]  > r:
+        return False
+    else:
+        if pos[0] >  (radius-pos[1]/np.sqrt(3)):
+            return False
+        else:
+            return True
+
 def get_cube_distance(hex_start, hex_end):
     """
     Computes the smallest number of hexes between hex_start and hex_end, on the hex lattice.
