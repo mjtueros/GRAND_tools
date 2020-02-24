@@ -21,31 +21,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 import hdf5fileinout as hdf5io
 #from matplotlib.pyplot import cm
-
-
 import DatabaseFunctions as mydatabase  #my database handling library
 import AiresInfoFunctions as AiresInfo
 #import interpol_func as intf
 import interpol_func_hdf5 as intf
 import grids
 
-#directory where the files from the library are located
-Directory = "/home/mjtueros/GRAND/GP300/HDF5StshpLibrary/Outbox"
-#what to use in the interpolation (efield, voltage, filteredvoltage)
-usetrace='efield'
-#threshold abouve wich the interpolation is computed
-threshold=26 #8.66 for 15uV , 26 for 45uV
-display=False
+
 
 parser = argparse.ArgumentParser(description='A script to get the CPU time in a library of Simulations')
 parser.add_argument('DatabaseFile', #name of the parameter
                     metavar="filename", #name of the parameter value in the help
                     help='The Database of the library .db file') # help message for this parameter
-
-
 results = parser.parse_args()
 dbfile=results.DatabaseFile
 
+dbfile="/home/mjtueros/GRAND/GP300/HDF5StshpLibrary/StshpXmaxLibraryInExa24.01.sql3.db"
+#directory where the files from the library are located
+Directory = "/home/mjtueros/GRAND/GP300/HDF5StshpLibrary/Outbox"
+#what to use in the interpolation (efield, voltage, filteredvoltage)
+usetrace='voltage'
+#threshold abouve wich the interpolation is computed
+threshold=0;#26 #8.66 for 15uV , 26 for 45uV
+trigger=75
+display=False
 #logging.debug('This is a debug message')
 #logging.info('This is an info message')
 #logging.warning('This is a warning message')
@@ -74,25 +73,28 @@ CurDataBase.execute("SELECT * FROM showers")
 DatabaseRecord = CurDataBase.fetchone()
 counterr = 0
 countok = 0
-InterpErrAll = np.zeros((16,1000))
-DistanceAnt = np.zeros((16,1000))
-P2pAll = np.zeros((16,1000))
-
-#while(DatabaseRecord!=None and countok < 50): #500 events in 30min, withouth tresholding, 700 en 47 min
-while(DatabaseRecord!=None):
-
+InterpErrAll = np.zeros((16,1100))
+InterpErrAllx = np.zeros((16,1100))
+InterpErrAlly = np.zeros((16,1100))
+InterpErrAllz = np.zeros((16,1100))
+P2pAll = np.zeros((16,1100))
+P2pAllx = np.zeros((16,1100))
+P2pAlly = np.zeros((16,1100))
+P2pAllz = np.zeros((16,1100))
+errortype = np.zeros((16,1100))
+errortypex = np.zeros((16,1100))
+errortypey = np.zeros((16,1100))
+errortypez = np.zeros((16,1100))
+while(DatabaseRecord!=None and countok < 1100): #500 events in 30min, withouth tresholding, 700 en 47 min
+    #while(DatabaseRecord!=None):
     DatabaseStatus = mydatabase.GetStatusFromRecord(DatabaseRecord) #i do it with a function call becouse if we change the database structure we dont have to change this
     #Directory = mydatabase.GetDirectoryFromRecord(DatabaseRecord)
     JobName = mydatabase.GetNameFromRecord(DatabaseRecord)
     JobDirectory = str(Directory)+"/"+str(JobName)
     Tries = mydatabase.GetTriesFromRecord(DatabaseRecord)
-
+    #.
     logging.debug("Reading Job " + JobName + " which was in " + DatabaseStatus + " status ("+str(Tries)+") at " + Directory)
-
-# 0.09665536 0.05555899 0.11996197 0.02175862 0.01625389 0.00539286
-# 0.02177963 0.40966389 0.02274206 0.19980328 0.00483166 0.02463318
-# 0.13643482 0.00595974 0.04243686 0.01210873
-
+    #.
     if(DatabaseStatus == "RunOK"): #and JobName=="Stshp_XmaxLibrary_0.1995_80.40_180_Gamma_01"):
         try:
             TaskName = mydatabase.GetTasknameFromRecord(DatabaseRecord)
@@ -102,18 +104,13 @@ while(DatabaseRecord!=None):
             Azimuth = mydatabase.GetAzimuthFromRecord(DatabaseRecord)
             Primary = mydatabase.GetPrimaryFromRecord(DatabaseRecord)
             Xmax = mydatabase.GetXmaxFromRecord(DatabaseRecord)
-
-
-            #unncecesary?
-            #Altitude,Distance,x,y,z = AiresInfo.GetKmXmaxFromSry(str(Directory)+"/"+str(JobName)+"/"+str(TaskName)+".sry","N/A")
-
+            #.
             InputFilename=str(Directory)+"/"+str(JobName)+"/"+str(JobName)+".hdf5"
-
-
+            #.
             CurrentRunInfo=hdf5io.GetRunInfo(InputFilename)
             CurrentEventName=hdf5io.GetEventName(CurrentRunInfo,0) #using the first event of each file (there is only one for now)
             CurrentAntennaInfo=hdf5io.GetAntennaInfo(InputFilename,CurrentEventName)
-
+            #.
             #AntNum, AntPos, AntID = intf.get_antenna_pos_zhaires(JobDirectory+'/antpos.dat')
             #one way of putting the antenna information as the numpy array this script was designed to use:
             antennamin=0
@@ -124,103 +121,247 @@ while(DatabaseRecord!=None):
             ypoints=CurrentAntennaInfo['Y'].data[antennamin:antennamax]
             zpoints=CurrentAntennaInfo['Z'].data[antennamin:antennamax]
             AntPos=np.stack((xpoints,ypoints,zpoints), axis=0)
-
-            p2pE = intf.get_p2p_hdf5(InputFilename,antennamax=175,antennamin=0,usetrace=usetrace)
-            #print(np.shape(AntPos))
-
-
-            NewPos = grids.create_grid(AntPos[0:15],Zenith,'check',20,10) #In Check mode, it will return the last 16 elements of Antpos, so this just Antpos[160:175]
-            #print(np.shape(NewPos))
-
-            InterpErr,p2p_total_new = intf.interpol_check_hdf5(InputFilename, AntPos, NewPos.T, p2pE,'trace',threshold=threshold, usetrace=usetrace,DISPLAY=display)
-
+            #.
+            #this gets the p2p values in all chanels, for all simulated antennas.
+            p2pE = hdf5io.get_p2p_hdf5(InputFilename,antennamax=175,antennamin=0,usetrace=usetrace)
+            #.
+            NewPos = grids.create_grid(AntPos,Zenith,'check',20,10) #In Check mode, it will return the last 16 elements of Antpos, so this just Antpos[160:175]
+            #.
+            InterpErr, p2p_total_new, interp_errx, p2p_x_new, interp_erry, p2p_y_new, interp_errz, p2p_z_new = intf.interpol_check_hdf5(InputFilename, AntPos, NewPos.T, p2pE,'trace',threshold=threshold, usetrace=usetrace,DISPLAY=display)
+            #.
+            #so these are the relative errors of all interpolated antennas
             InterpErrAll[:,countok] = InterpErr
-            DistanceAnt[:,countok] = np.sqrt(NewPos[0,:]**2 + NewPos[1,:]**2 + NewPos[2,:]**2)
+            InterpErrAllx[:,countok] = interp_errx
+            InterpErrAlly[:,countok] = interp_erry
+            InterpErrAllz[:,countok] = interp_errz
+            #.
+            #and this is the p2p value of all interpolated antennas
             P2pAll[:,countok] = p2p_total_new
-
-
+            P2pAllx[:,countok] = p2p_x_new
+            P2pAlly[:,countok] = p2p_y_new
+            P2pAllz[:,countok] = p2p_z_new
+            #.
+            #now, false positives is 1, false negatives is -1, 0  is correct and triggered, -2 is neither
+            a=np.arange(0,len(p2p_total_new))
+            errortype[:,countok]=[1 if  (p2p_total_new[i] >= trigger and p2pE[3,160+i]<trigger) else -1 if (p2p_total_new[i] < trigger and p2pE[3,160+i]>=trigger) else 0 if (p2p_total_new[i] >= trigger and p2pE[3,160+i]>=trigger) else -2  for i in a]
+            errortypex[:,countok]=[1 if  (p2p_x_new[i] >= trigger and p2pE[0,160+i]<trigger) else -1 if (p2p_x_new[i] < trigger and p2pE[0,160+i]>=trigger) else 0 if (p2p_x_new[i] >= trigger and p2pE[0,160+i]>=trigger) else -2 for i in a]
+            errortypey[:,countok]=[1 if  (p2p_y_new[i] >= trigger and p2pE[1,160+i]<trigger) else -1 if (p2p_y_new[i] < trigger and p2pE[1,160+i]>=trigger) else 0 if (p2p_y_new[i] >= trigger and p2pE[1,160+i]>=trigger) else -2 for i in a]
+            errortypez[:,countok]=[1 if  (p2p_z_new[i] >= trigger and p2pE[2,160+i]<trigger) else -1 if (p2p_z_new[i] < trigger and p2pE[2,160+i]>=trigger) else 0 if (p2p_z_new[i] >= trigger and p2pE[2,160+i]>=trigger) else -2 for i in a]
+            #.
             countok += 1
-            print("Event #{} done".format(countok))
-
-
+            print("Event #{} done" .format(countok))
+            #.
+            #.
         except FileNotFoundError:
           logging.error("ant_interpol_chk_db:file not found or invalid:"+TaskName)
           counterr += 1
-
-
+          #.
     #this is the last order of the while, that will fetch the next record of the database
     DatabaseRecord=CurDataBase.fetchone()
-
-
+#.
+#.
 logging.debug('ant_interpol_chk_db: Plotting...')
 
-fig2 = plt.figure(1,figsize=(7,5), dpi=100, facecolor='w', edgecolor='k')
-ax1=fig2.add_subplot(111)
-name = 'overall errors ' + str(usetrace) + " threshold " + str(thrshold)
-plt.title(name)
-ax1.set_xlabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
-ax1.set_ylabel('N')
 
 ind = np.where(InterpErrAll != 0) #here i remove the cases where the error is 0. Shouldnt happen?
 myInterpErrAll = InterpErrAll[ind]
 myP2pAll= P2pAll[ind]
-print(np.shape(InterpErrAll))
-print(np.shape(myInterpErrAll))
+myerrortype=errortype[ind]
+
+indx = np.where(InterpErrAllx != 0) #here i remove the cases where the error is 0. Shouldnt happen?
+myInterpErrAllx = InterpErrAllx[indx]
+myP2pAllx= P2pAllx[indx]
+myerrortypex=errortypex[indx]
+
+indy = np.where(InterpErrAlly != 0) #here i remove the cases where the error is 0. Shouldnt happen?
+myInterpErrAlly = InterpErrAlly[indy]
+myP2pAlly= P2pAlly[indy]
+myerrortypey=errortypey[indy]
+
+indz = np.where(InterpErrAllz != 0) #here i remove the cases where the error is 0. Shouldnt happen?
+myInterpErrAllz = InterpErrAllz[indz]
+myP2pAllz= P2pAllz[indz]
+myerrortypez=errortypez[indz]
+
+print(np.shape(P2pAll),np.shape(P2pAllx),np.shape(P2pAlly),np.shape(P2pAllz))
+print(np.shape(myP2pAll),np.shape(myP2pAllx),np.shape(myP2pAlly),np.shape(myP2pAllz))
 
 
-myhist, mybins = np.histogram(np.log10(myInterpErrAll),bins=30)
-plt.hist(np.log10(myInterpErrAll), bins=mybins)
+##############Plot histogram of relative errors, for all components####################################
+fig1 = plt.figure(1,figsize=(7,5), dpi=100, facecolor='w', edgecolor='k')
+mybins = [-1.5,-0.5,0.5,1.5]
+
+ax1=fig1.add_subplot(221)
+ax1.set_xlabel('Error type')
+ax1.set_ylabel('N')
+name = 'clasification errors ' + str(usetrace) + " threshold " + str(threshold) + " trigger " + str(trigger)
+plt.title(name)
+plt.yscale('log')
+plt.hist(myerrortype, bins=mybins,alpha=0.8,label="Total",density=True)
+
+
+ax2=fig1.add_subplot(222)
+ax2.set_xlabel('Error type')
+ax2.set_ylabel('N')
+name = 'clasification errors x' + str(usetrace) + " threshold " + str(threshold) + " trigger " + str(trigger)
+plt.title(name)
+plt.yscale('log')
+plt.hist(myerrortypex, bins=mybins,alpha=0.8,label="Total",density=True)
+
+ax3=fig1.add_subplot(223)
+ax3.set_xlabel('Error type')
+ax4.set_ylabel('N')
+name = 'clasification errors y' + str(usetrace) + " threshold " + str(threshold) + " trigger " + str(trigger)
+plt.title(name)
+plt.yscale('log')
+plt.hist(myerrortypey, bins=mybins,alpha=0.8,label="Total",density=True)
+
+ax4=fig1.add_subplot(224)
+ax4.set_xlabel('Error type')
+ax4.set_ylabel('N')
+name = 'clasification errors z ' + str(usetrace) + " threshold " + str(threshold) + " trigger " + str(trigger)
+plt.title(name)
+plt.yscale('log')
+plt.hist(myerrortypez, bins=mybins,alpha=0.8,label="Total",density=True)
+
+plt.tight_layout()
+
+##############Plot histogram of relative errors, for all components####################################
+fig2 = plt.figure(2,figsize=(7,5), dpi=100, facecolor='w', edgecolor='k')
+mybins = np.linspace(-4,0,79)
+
+ax1=fig2.add_subplot(221)
+ax1.set_xlabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax1.set_ylabel('N')
+name = 'overall errors ' + str(usetrace) + " threshold " + str(threshold)
+plt.title(name)
+plt.hist(np.log10(myInterpErrAll), bins=mybins,alpha=0.8,label="Total")
+
+ax2=fig2.add_subplot(222)
+ax2.set_xlabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax2.set_ylabel('N')
+name = 'overall errors x' + str(usetrace) + " threshold " + str(threshold)
+plt.title(name)
+plt.hist(np.log10(myInterpErrAllx), bins=mybins,alpha=0.8,label="x")
+
+ax3=fig2.add_subplot(223)
+ax3.set_xlabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax3.set_ylabel('N')
+name = 'overall errors y' + str(usetrace) + " threshold " + str(threshold)
+plt.title(name)
+plt.hist(np.log10(myInterpErrAlly), bins=mybins,alpha=0.8,label="y")
+
+ax4=fig2.add_subplot(224)
+ax4.set_xlabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax4.set_ylabel('N')
+name = 'overall errors z' + str(usetrace) + " threshold " + str(threshold)
+plt.title(name)
+plt.hist(np.log10(myInterpErrAllz), bins=mybins,alpha=0.8,label="z")
+
 plt.tight_layout()
 
 
-
-fig3 = plt.figure(2,figsize=(7,5), dpi=100, facecolor='w', edgecolor='k')
-ax1=fig3.add_subplot(111)
-name = 'overall errors ' + str(usetrace) + " threshold " + str(thrshold)
-plt.title(name)
-ax1.set_ylabel('$|E_{int}-E_{sim}|/E_{sim}$')
-ax1.set_xlabel('Antenna distance from core [m]')
-
-ind = np.mgrid[0:countok:1]
-dist = DistanceAnt[:,ind].flatten()
-interr = InterpErrAll[:,ind].flatten()
-
-plt.hist2d(dist,interr,bins=30)
-plt.tight_layout()
-
-
-
-fig3 = plt.figure(3,figsize=(7,5), dpi=100, facecolor='w', edgecolor='k')
-ax1=fig3.add_subplot(111)
-name = 'overall errors ' + str(usetrace) + " threshold " + str(thrshold)
-plt.title(name)
-ax1.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
-ax1.set_xlabel('$E_{sim}  [\mu V/m]$')
-
+####################Plot 2d histogram, relative errors vs signal, all components##################################3
 
 ind = np.where(myP2pAll != 0) #now i remove the cases where the signal is 0
 myInterpErrAll2 = myInterpErrAll[ind]
 myP2pAll2= myP2pAll[ind]
 
-print(np.shape(myInterpErrAll2))
-print(np.shape(myP2pAll2))
+indx = np.where(myP2pAllx != 0) #now i remove the cases where the signal is 0
+myInterpErrAll2x = myInterpErrAllx[indx]
+myP2pAll2x= myP2pAll[indx]
 
-p2p = myP2pAll2
+indy = np.where(myP2pAlly != 0) #now i remove the cases where the signal is 0
+myInterpErrAll2y = myInterpErrAlly[indy]
+myP2pAll2y= myP2pAlly[ind]
+
+indz = np.where(myP2pAllz != 0) #now i remove the cases where the signal is 0
+myInterpErrAll2z = myInterpErrAllz[indz]
+myP2pAll2z= myP2pAllz[indz]
 
 
-plt.hist2d(np.log10(p2p),np.log10(myInterpErrAll2),bins=100)
+print(np.shape(P2pAll),np.shape(P2pAllx),np.shape(P2pAlly),np.shape(P2pAllz))
+print(np.shape(myP2pAll2),np.shape(myP2pAll2x),np.shape(myP2pAll2y),np.shape(myP2pAll2z))
+
+
+fig3 = plt.figure(3,figsize=(7,5), dpi=100, facecolor='w', edgecolor='k')
+ax1=fig3.add_subplot(221)
+name = ' Total ' + str(usetrace) + " threshold " + str(threshold)
+plt.title(name)
+ax1.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax1.set_xlabel('$log_{10} E_{sim}  [\mu V/m]$')
+plt.hist2d(np.log10(myP2pAll2),np.log10(myInterpErrAll2),bins=[100,79],range=[[-2, 3], [-4, 0]])
+
+
+ax2=fig3.add_subplot(222)
+name = ' x ' + str(usetrace) + " threshold " + str(threshold)
+plt.title(name)
+ax2.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax2.set_xlabel('$log_{10} E_{sim}  [\mu V/m]$')
+plt.hist2d(np.log10(myP2pAll2x),np.log10(myInterpErrAll2x),bins=[100,79],range=[[-2, 3], [-4, 0]])
+
+ax3=fig3.add_subplot(223)
+name = ' y ' + str(usetrace) + " threshold " + str(threshold)
+plt.title(name)
+ax3.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax3.set_xlabel('$log_{10} E_{sim}  [\mu V/m]$')
+plt.hist2d(np.log10(myP2pAll2y),np.log10(myInterpErrAll2y),bins=[100,79],range=[[-2, 3], [-4, 0]])
+
+ax4=fig3.add_subplot(224)
+name = ' z ' + str(usetrace) + " threshold " + str(threshold)
+plt.title(name)
+ax4.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax4.set_xlabel('$log_{10} E_{sim}  [\mu V/m]$')
+plt.hist2d(np.log10(myP2pAll2z),np.log10(myInterpErrAll2z),bins=[100,79],range=[[-2, 3], [-4, 0]])
 plt.tight_layout()
 
 
 
-fig3b = plt.figure(3,figsize=(7,5), dpi=100, facecolor='w', edgecolor='k')
-ax1=fig3b.add_subplot(111)
+##########################Plot scatter 2d errors vs signal all components###########################3
+
+
+fig4 = plt.figure(4,figsize=(7,5), dpi=100, facecolor='w', edgecolor='k')
+ax1=fig4.add_subplot(221)
 name = 'scatter overall errors'
 plt.title(name)
 ax1.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
 ax1.set_xlabel('$log_{10} E_{sim}  [\mu V/m]$')
 
-plt.scatter(np.log10(p2p),np.log10(myInterpErrAll2), s=1)
+plt.scatter(np.log10(myP2pAll2),np.log10(myInterpErrAll2), s=1)
+plt.xlim(-2,3)
+plt.ylim(-4, 0)
+
+ax2=fig4.add_subplot(222)
+name = 'scatter overall errors x'
+plt.title(name)
+ax2.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax2.set_xlabel('$log_{10} E_{sim}  [\mu V/m]$')
+
+plt.scatter(np.log10(myP2pAll2x),np.log10(myInterpErrAll2x), s=1)
+plt.xlim(-2,3)
+plt.ylim(-4, 0)
+
+
+ax3=fig4.add_subplot(223)
+name = 'scatter overall errors y'
+plt.title(name)
+ax3.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax3.set_xlabel('$log_{10} E_{sim}  [\mu V/m]$')
+
+plt.scatter(np.log10(myP2pAll2y),np.log10(myInterpErrAll2y), s=1)
+plt.xlim(-2,3)
+plt.ylim(-4, 0)
+
+ax4=fig4.add_subplot(224)
+name = 'scatter overall errors z'
+plt.title(name)
+ax4.set_ylabel('$log_{10} |E_{int}-E_{sim}|/E_{sim}$')
+ax4.set_xlabel('$log_{10} E_{sim}  [\mu V/m]$')
+
+plt.scatter(np.log10(myP2pAll2z),np.log10(myInterpErrAll2z), s=1)
+plt.xlim(-2,3)
+plt.ylim(-4, 0)
+
 plt.tight_layout()
 
 

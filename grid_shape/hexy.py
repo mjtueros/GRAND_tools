@@ -20,13 +20,31 @@ ALL_DIRECTIONS = np.array([NW, NE, E, SE, SW, W, ])
 Angles_pointy_top = [np.pi/6 + i*np.pi/3 for i in range(0,6) ]
 
 
-def get_corners(center, radius):
-    return [
+def get_corners(centers, radius):
+    return np.array(
+        [
+        [
             (
                 center[0] + radius * np.cos(a),
                 center[1] + radius * np.sin(a)
-            ) for a in Angles_pointy_top
-        ]
+            ) for center in centers 
+        ] for a in Angles_pointy_top
+    ]).transpose(1,2,0)
+
+
+def is_inside_hex(pos, radius):
+    
+    pos = np.abs(pos)
+    
+    r = radius * np.sqrt(3) / 2
+    
+    if pos[0]  > r:
+        return False
+    else:
+        if pos[1] >  (radius-pos[0]/np.sqrt(3)):
+            return False
+        else:
+            return True
 
 def get_cube_distance(hex_start, hex_end):
     """

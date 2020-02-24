@@ -7,6 +7,7 @@ import hdf5fileinout as hdf5io
 import os,sys,inspect
 
 
+
 #thetageo=147.43 *u.deg # deg, GRAND ->astropy.units
 #phigeo=0.72*u.deg  # deg, GRAND ->astropy.units
 
@@ -47,72 +48,6 @@ def get_antenna_pos_zhaires(pathfile):
     logging.debug('get_antenna_pos_zhaires: Number of antennas: %i' % number_ant)
 
     return number_ant, positions, ID_ant
-
-
-
-def get_p2p_hdf5(InputFilename,antennamax='All',antennamin=0,usetrace='efield'):
-    '''
-    read in all traces from antennamax to antennamin and output the peak to peak electric field and amplitude
-
-    Parameters:
-    InputFilename: str
-        HDF5File
-    antennamin: int
-       starting antenna (starts from 0)
-    antennamax: int
-       final antenna ('All uses all the antennas)
-    usetrace: str
-       efield, voltage, filteredvoltage
-    Output:
-    p2pE: numpy array
-        [p2p_Ex, p2p_Ey, p2p_Ez, p2p_total]: peak-to-peak electric fields along x, y, z, and norm
-
-    '''
-    CurrentRunInfo=hdf5io.GetRunInfo(InputFilename)
-    CurrentEventName=hdf5io.GetEventName(CurrentRunInfo,0) #using the first event of each file (there is only one for now)
-    CurrentAntennaInfo=hdf5io.GetAntennaInfo(InputFilename,CurrentEventName)
-
-    if(antennamax=='All'):
-     antennamax=len(CurrentAntennaInfo)-1
-
-
-    # create an array
-    p2p_Ex = np.zeros(1+antennamax-antennamin)
-    p2p_Ey = np.zeros(1+antennamax-antennamin)
-    p2p_Ez = np.zeros(1+antennamax-antennamin)
-    p2p_total = np.zeros(1+antennamax-antennamin)
-    p2pE=np.zeros(1+antennamax-antennamin)
-
-    for i in range(antennamin,antennamax+1):
-      AntennaID=hdf5io.GetAntennaID(CurrentAntennaInfo,i)
-      if(usetrace=='efield'):
-        trace=hdf5io.GetAntennaEfield(InputFilename,CurrentEventName,AntennaID,OutputFormat="numpy")
-      elif(usetrace=='voltage'):
-        trace=hdf5io.GetAntennaVoltage(InputFilename,CurrentEventName,AntennaID,OutputFormat="numpy")
-      elif(usetrace=='filteredvoltage'):
-        trace=hdf5io.GetAntennaFilteredVoltage(InputFilename,CurrentEventName,AntennaID,OutputFormat="numpy")
-      else:
-        print('You must specify either efield, voltage or filteredvoltage, bailing out')
-
-      #transposing takes a lot of time
-      #p2p_Ex[i] = max(trace.T[1])-min(trace.T[1])
-      #p2p_Ey[i] = max(trace.T[2])-min(trace.T[2])
-      #p2p_Ez[i] = max(trace.T[3])-min(trace.T[3])
-      p2p= np.amax(trace,axis=0)-np.amin(trace,axis=0)
-      p2p_Ex[i]= p2p[1]
-      p2p_Ey[i]= p2p[2]
-      p2p_Ez[i]= p2p[3]
-
-      #amplitude = np.sqrt(trace.T[1]**2. + trace.T[2]**2. + trace.T[3]**2.) # combined components
-      amplitude = np.sqrt(trace[:,1]**2. + trace[:,2]**2. + trace[:,3]**2.) # combined components
-      #print(amplitude-amplitude2)
-
-      p2p_total[i] = max(amplitude)-min(amplitude)
-
-      #print(p2p_Ex,p2p_Ey,p2p_Ez,p2p_total)
-
-    p2pE = np.stack((p2p_Ex, p2p_Ey, p2p_Ez, p2p_total), axis=0)
-    return p2pE
 
 
 def interpol_check_hdf5(InputFilename, positions, new_pos, p2pE, InterpolMethod, threshold=0,usetrace='efield', DISPLAY=False):
@@ -181,7 +116,7 @@ def interpol_check_hdf5(InputFilename, positions, new_pos, p2pE, InterpolMethod,
 
 
     if InterpolMethod == 'trace':
-        from trace_interpol_development_MatiasPhase_HDF5 import do_interpolation_hdf5
+        from trace_interpol_hdf5 import do_interpolation_hdf5
         OutputFilename = InputFilename + '.Interpolated.'+str(usetrace)+'.hdf5'
 
         #do_interpolation(AntPath,new_pos,mypositions,Zenith,Azimuth,phigeo=147.43, thetageo=0.72, shower_core=np.array([0,0,2900]), DISPLAY=False)
@@ -191,16 +126,23 @@ def interpol_check_hdf5(InputFilename, positions, new_pos, p2pE, InterpolMethod,
         #NewAntNum, NewAntPos, NewAntID = get_antenna_pos_zhaires(NewAntPath)
         #NewP2pE = get_p2p(path+"/Test",NewAntNum)
 
-        NewP2pE = get_p2p_hdf5(OutputFilename,antennamax=15,antennamin=0,usetrace=usetrace)
+        NewP2pE = hdf5io.get_p2p_hdf5(OutputFilename,antennamax=15,antennamin=0,usetrace=usetrace)
 
         p2p_total_new = NewP2pE[3,:]
+        p2p_x_new = NewP2pE[0,:]
+        p2p_y_new = NewP2pE[1,:]
+        p2p_z_new = NewP2pE[2,:]
 
     # checking the interpolation efficiency
     interp_err = abs(p2p_total_new-p2pE[3,icheck])/p2pE[3,icheck]
+    interp_errx = abs(p2p_x_new-p2pE[0,icheck])/p2pE[0,icheck]
+    interp_erry = abs(p2p_y_new-p2pE[1,icheck])/p2pE[1,icheck]
+    interp_errz = abs(p2p_z_new-p2pE[2,icheck])/p2pE[2,icheck]
+
     #print(np.shape(p2p_total_new))
     #print(np.shape(p2pE[3,icheck]))
     #print(p2pE[3,icheck])
-    print("interp_err = #{}".format(interp_err))
+    #print("interp_err = #{}".format(interp_err))
 
 
     if (DISPLAY and InterpolMethod!='trace'):
@@ -269,11 +211,8 @@ def interpol_check_hdf5(InputFilename, positions, new_pos, p2pE, InterpolMethod,
 
 
 
-    return interp_err, p2p_total_new
+    return interp_err, p2p_total_new, interp_errx, p2p_x_new, interp_erry, p2p_y_new, interp_errz, p2p_z_new
 
-
-
-#def interpol_check_hdf5(InputFilename, positions, new_pos, p2pE, InterpolMethod, usetrace='efield', DISPLAY=False):
 def interpol_hdf5(InputFilename, OutputFilename,new_pos, p2pE=None,positions=None, InterpolMethod='trace', threshold=0,usetrace='efield', DISPLAY=False):
 
     '''
@@ -310,7 +249,8 @@ def interpol_hdf5(InputFilename, OutputFilename,new_pos, p2pE=None,positions=Non
 
     Output:
     p2p_total_new: numpy array
-        peak-to-peak electric field at new antenna positions
+        peak-to-peak electric field at new antenna positions (in all but the trace method)
+        peak to peak of the electric field components, and of the total
 
     '''
 
@@ -322,7 +262,7 @@ def interpol_hdf5(InputFilename, OutputFilename,new_pos, p2pE=None,positions=Non
 
     if InterpolMethod == 'trace':
 
-        from trace_interpol_development_MatiasPhase_HDF5 import do_interpolation_hdf5
+        from trace_interpol_hdf5 import do_interpolation_hdf5
         #OutputFilename = InputFilename + '.Interpolated.'+str(usetrace)+'.hdf5'
 
         #do_interpolation(AntPath,new_pos,mypositions,Zenith,Azimuth,phigeo=147.43, thetageo=0.72, shower_core=np.array([0,0,2900]), DISPLAY=False)
@@ -332,10 +272,10 @@ def interpol_hdf5(InputFilename, OutputFilename,new_pos, p2pE=None,positions=Non
         #NewAntNum, NewAntPos, NewAntID = get_antenna_pos_zhaires(NewAntPath)
         #NewP2pE = get_p2p(path+"/Test",NewAntNum)
 
-        NewP2pE = get_p2p_hdf5(OutputFilename,usetrace=usetrace)
+        NewP2pE = hdf5io.get_p2p_hdf5(OutputFilename,usetrace=usetrace)
 
-        p2p_total_new = NewP2pE[3,:]
-
+        return NewP2pE
+        #p2p_total_new = NewP2pE[3,:]
 
     if InterpolMethod == 'lin':
         myx_pos = positions[0,0:number_ant]
