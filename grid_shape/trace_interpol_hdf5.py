@@ -501,14 +501,14 @@ def do_interpolation_hdf5(desired, InputFilename, OutputFilename, antennamin=0, 
     if(DEVELOPMENT):
       print(InputFilename)
       P2P=hdf5io.get_p2p_hdf5(InputFilename,antennamin=160,usetrace=usetrace)
-      peaktime, peakamplitude= hdf5io.get_peak_time_hilbert_hdf5(InputFilename,antennamin=160, usetrace=usetrace, DISPLAY=True)
+      peaktime, peakamplitude= hdf5io.get_peak_time_hilbert_hdf5(InputFilename,antennamin=160, usetrace=usetrace, DISPLAY=DISPLAY)
 
       if(usetrace=="efield"):
-        DesiredAntennaInfo=hdf5io.CreateAntennaInfo(DesiredIds, DesiredAntx, DesiredAnty, DesiredAntz, DesiredSlopeA, DesiredSlopeB, DesiredAntennaInfoMeta, P2Pefield=P2P)
+        DesiredAntennaInfo=hdf5io.CreateAntennaInfo(DesiredIds, DesiredAntx, DesiredAnty, DesiredAntz, DesiredSlopeA, DesiredSlopeB, DesiredAntennaInfoMeta, P2Pefield=P2P, HilbertPeak=peakamplitude,HilbertPeakTime=peaktime)
       elif(usetrace=="voltage"):
-        DesiredAntennaInfo=hdf5io.CreateAntennaInfo(DesiredIds, DesiredAntx, DesiredAnty, DesiredAntz, DesiredSlopeA, DesiredSlopeB, DesiredAntennaInfoMeta, P2Pvoltage=P2P)
+        DesiredAntennaInfo=hdf5io.CreateAntennaInfo(DesiredIds, DesiredAntx, DesiredAnty, DesiredAntz, DesiredSlopeA, DesiredSlopeB, DesiredAntennaInfoMeta, P2Pvoltage=P2P, HilbertPeak=peakamplitude,HilbertPeakTime=peaktime)
       elif(usetrace=="filteredvoltage"):
-        DesiredAntennaInfo=hdf5io.CreateAntennaInfo(DesiredIds, DesiredAntx, DesiredAnty, DesiredAntz, DesiredSlopeA, DesiredSlopeB, DesiredAntennaInfoMeta, P2Pfiltered=P2P)
+        DesiredAntennaInfo=hdf5io.CreateAntennaInfo(DesiredIds, DesiredAntx, DesiredAnty, DesiredAntz, DesiredSlopeA, DesiredSlopeB, DesiredAntennaInfoMeta, P2Pfiltered=P2P, HilbertPeak=peakamplitude,HilbertPeakTime=peaktime)
       else:
         print("warning,supported trace tipes are efield, voltage and filtered voltage only!")
 
