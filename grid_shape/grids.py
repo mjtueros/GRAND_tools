@@ -184,6 +184,7 @@ def create_grid_univ(
         'rect' = rectangles tiled over rectangular shape
         'hexhex' = hexagons tiled in overall hexagonal shape
         'hexrand' = hexagons tiled in overal hexagonal shape with Nrand randomly displaced antennas
+        'trihex' = hexagons + centers (forming 6 triangles) tiled in overall hexagonal shape 
     radius: float
         radius of hexagon in m, radius >=2
     angle: float
@@ -241,7 +242,7 @@ def create_grid_univ(
         # create a hexagonal grid with overall hexagonal layout
         logging.debug('create_grid:Generating hexagonal grid in hex layout...')
 
-        Nring = 5 # number of hex rings corresponding to 186 antennas
+        Nring = 5 # number of hex rings corresponding to 216 antennas
         radius_grid = (1 + Nring *1.5) * 2 / np.sqrt(3) * radius # radius of the circle enclosing the hexgrid
         xcube = hx.get_spiral(np.array((0,0,0)), 0, Nring)
         xpix = hx.cube_to_pixel(xcube, radius)
@@ -251,7 +252,7 @@ def create_grid_univ(
         
         xcorn2=xcorn.transpose(0,2,1)
         hexarray = np.array(xcorn2).reshape((sh[0]*sh[2],sh[1]))
-
+        
         grid_x = hexarray[:,0]
         grid_y = hexarray[:,1]
 
@@ -276,6 +277,46 @@ def create_grid_univ(
                 print("%i A%i %1.5e %1.5e %1.5e" % (i,i-1,x_pos_new[i-1],y_pos_new[i-1],z_site), end='\n', file=FILE)
             FILE.close()
 
+    if GridShape == 'trihex':
+        # create a hexagonal grid with overall hexagonal layout
+        logging.debug('create_grid:Generating hexagonal grid in hex layout...')
+
+        Nring = 4 # number of hex rings corresponding to 211 antennas
+        radius_grid = (1 + Nring *1.5) * 2 / np.sqrt(3) * radius # radius of the circle enclosing the hexgrid
+        xcube = hx.get_spiral(np.array((0,0,0)), 0, Nring)
+        xpix = hx.cube_to_pixel(xcube, radius)
+        xcorn = hx.get_corners(xpix,radius)
+        
+        sh = np.array(xcorn).shape
+        
+        xcorn2=xcorn.transpose(0,2,1)
+        hexarray = np.array(xcorn2).reshape((sh[0]*sh[2],sh[1]))
+        
+        hexarray = np.vstack([hexarray, xpix])
+        
+        grid_x = hexarray[:,0]
+        grid_y = hexarray[:,1]
+
+
+        # remove redundant points
+        x_pos_flat_fl = grid_x
+        y_pos_flat_fl = grid_y
+        scal = (x_pos_flat_fl - x_pos_flat_fl.min()) +(x_pos_flat_fl.max() - x_pos_flat_fl.min()) * (y_pos_flat_fl - y_pos_flat_fl.min())
+
+        scal = np.floor(scal)
+        unique, index = np.unique(scal, return_index=True)
+
+        x_pos_new = grid_x[index]
+        y_pos_new = grid_y[index]
+       
+
+        # write new antenna position file
+        if(directory!=None):
+            logging.debug('create_grid: Writing in file '+ directory +'/new_antpos_hex_%d.dat...'%radius)
+            FILE = open(directory+ '/new_antpos_hex_%d.dat'%radius,"w+" )
+            for i in range( 1, len(x_pos_new)+1 ):
+                print("%i A%i %1.5e %1.5e %1.5e" % (i,i-1,x_pos_new[i-1],y_pos_new[i-1],z_site), end='\n', file=FILE)
+            FILE.close()
 
     if GridShape == 'hexrand':
         # create a hexagonal grid with overall hexagonal layout
@@ -353,9 +394,10 @@ def create_grid_univ(
             x_radius = xNum * radius
             y_radius = yNum * radius
             offset = get_offset_in_grid(GridShape, x_radius, y_radius)       
-        elif GridShape == "hexhex":
+        elif (GridShape == "hexhex") or (GridShape == "trihex") :
             #x_radius = radius
-            offset = get_offset_in_grid(GridShape, radius_grid) 
+            offset = get_offset_in_grid(GridShape, radius_grid)
+
         x = offset[0]
         y = offset[1]
         theta = angle / 180 * np.pi
@@ -389,7 +431,7 @@ def get_offset(radius, GridShape):
 
     if GridShape == "rect":
         offset = (np.random.rand(2) - 0.5 ) * radius
-    elif GridShape == "hexhex":
+    elif (GridShape == "hexhex") or (GridShape == "trihex"):
         offset = (np.random.rand(2) - 0.5 ) * 2*radius
         while not(hx.is_inside_hex(offset, radius)):
             offset = (np.random.rand(2) - 0.5 ) * 2*radius
@@ -407,7 +449,7 @@ def get_offset_in_grid(GridShape, x_radius=None, y_radius=None):
     if GridShape == "rect": 
         x_offset = (np.random.rand(1) - 0.5 ) * x_radius 
         y_offset = (np.random.rand(1) - 0.5 ) * y_radius 
-    elif GridShape == "hexhex":
+    elif (GridShape == "hexhex") or (GridShape == "trihex"):
         x_offset, y_offset = (np.random.rand(2) - 0.5 ) * 2 * x_radius
         while not(hx.is_inside_hex_flattop([x_offset, y_offset], x_radius)):
             x_offset, y_offset = (np.random.rand(2) - 0.5 ) * 2 *x_radius
