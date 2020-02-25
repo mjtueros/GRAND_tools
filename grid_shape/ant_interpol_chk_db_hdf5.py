@@ -27,8 +27,6 @@ import AiresInfoFunctions as AiresInfo
 import interpol_func_hdf5 as intf
 import grids
 
-
-
 parser = argparse.ArgumentParser(description='A script to get the CPU time in a library of Simulations')
 parser.add_argument('DatabaseFile', #name of the parameter
                     metavar="filename", #name of the parameter value in the help
@@ -44,7 +42,7 @@ usetrace='efield'
 #threshold abouve wich the interpolation is computed
 threshold=0;#26 #8.66 for 15uV , 26 for 45uV
 trigger=75
-display=False
+display=True
 #logging.debug('This is a debug message')
 #logging.info('This is an info message')
 #logging.warning('This is a warning message')
@@ -125,23 +123,23 @@ while(DatabaseRecord!=None and countok < 1100): #500 events in 30min, withouth t
             #this gets the p2p values in all chanels, for all simulated antennas.
 
             p2pE = hdf5io.get_p2p_hdf5(InputFilename,antennamax=175,antennamin=0,usetrace=usetrace)
-            peaktime, peakamplitude= hdf5io.get_peak_time_hilbert_hdf5(InputFilename,antennamax=175,antennamin=0, usetrace=usetrace, DISPLAY=False)
+            #peaktime, peakamplitude= hdf5io.get_peak_time_hilbert_hdf5(InputFilename,antennamax=175,antennamin=0, usetrace=usetrace, DISPLAY=False)
 
             #lets append this to the an tennainfo (once)
-            from astropy.table import Table, Column
-            from astropy import units as u
-            p2pE32=p2pE.astype('f4') #reduce the data type to float 32
-            CurrentAntennaInfo.add_column(Column(data=p2pE32[3,:],name='P2P_efield',unit=u.u*u.V/u.m)) #p2p Value of the electric field
-            CurrentAntennaInfo.add_column(Column(data=p2pE32[0,:],name='P2Px_efield',unit=u.u*u.V/u.m)) #p2p Value of the electric field
-            CurrentAntennaInfo.add_column(Column(data=p2pE32[1,:],name='P2Py_efield',unit=u.u*u.V/u.m)) #p2p Value of the electric field
-            CurrentAntennaInfo.add_column(Column(data=p2pE32[2,:],name='P2Pz_efield',unit=u.u*u.V/u.m)) #p2p Value of the electric field
-            peakamplitude32=peakamplitude.astype('f4') #reduce the data type to float 32
-            CurrentAntennaInfo.add_column(Column(data=peakamplitude32,name='HilbertPeak')) #
-            peaktime32=peaktime.astype('f4')
-            CurrentAntennaInfo.add_column(Column(data=peaktime32,name='HilbertPeakTime',unit=u.u*u.s)) #
+            #from astropy.table import Table, Column
+            #from astropy import units as u
+            #p2pE32=p2pE.astype('f4') #reduce the data type to float 32
+            #CurrentAntennaInfo.add_column(Column(data=p2pE32[3,:],name='P2P_efield',unit=u.u*u.V/u.m)) #p2p Value of the electric field
+            #CurrentAntennaInfo.add_column(Column(data=p2pE32[0,:],name='P2Px_efield',unit=u.u*u.V/u.m)) #p2p Value of the electric field
+            #CurrentAntennaInfo.add_column(Column(data=p2pE32[1,:],name='P2Py_efield',unit=u.u*u.V/u.m)) #p2p Value of the electric field
+            #CurrentAntennaInfo.add_column(Column(data=p2pE32[2,:],name='P2Pz_efield',unit=u.u*u.V/u.m)) #p2p Value of the electric field
+            #peakamplitude32=peakamplitude.astype('f4') #reduce the data type to float 32
+            #CurrentAntennaInfo.add_column(Column(data=peakamplitude32,name='HilbertPeak')) #
+            #peaktime32=peaktime.astype('f4')
+            #CurrentAntennaInfo.add_column(Column(data=peaktime32,name='HilbertPeakTime',unit=u.u*u.s)) #
             #hdf5io.SaveAntennaInfo(InputFilename,CurrentAntennaInfo,CurrentEventName,overwrite=True)
             #i get an error when writing an existing table, even if the overwrite is set to true :(
-            CurrentAntennaInfo.write(InputFilename, path=CurrentEventName+"/AntennaInfo4", format="hdf5", append=True,  compression=True, serialize_meta=True, overwrite=True)
+            #CurrentAntennaInfo.write(InputFilename, path=CurrentEventName+"/AntennaInfo4", format="hdf5", append=True,  compression=True, serialize_meta=True, overwrite=True)
 
             #.
             NewPos = grids.create_grid(AntPos,Zenith,'check',20,10) #In Check mode, it will return the last 16 elements of Antpos, so this just Antpos[160:175]
